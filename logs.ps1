@@ -13,8 +13,25 @@ function parseLogText {
     $text = $log.Split(")")[1].TrimStart()
     $text
 }
+function parseMachineIdle {
+    param (
+        $log
+    )
+    try{
+        $text_log = $log.Substring($log.Length - 12).TrimStart()
+        #$text = $log.Split("Machine")[0]
+        $time_seconds  = $text_log.Split("seconds")[0].TrimEnd()
+        
+    }catch [System.Management.Automation.RuntimeException]{
+        $time_seconds = 0
+
+    }
+    $time_seconds
+
+}
+
 while ($true) {
-    $logs = Get-Content "C:\Users\<USER>\AppData\Roaming\Microsoft\Teams\logs.txt" -Last 1000
+    $logs = Get-Content "C:\Users\<User>\\AppData\Roaming\Microsoft\Teams\logs.txt" -Last 1000
     [array]::Reverse($logs)
     #$logs | select -Last 10 | Out-Host
     $logs_found = 0
@@ -56,7 +73,29 @@ while ($true) {
     #$relevant_logs 
     $text = "aktuelle Teams-Sitzung: " + ($relevant_logs | select -First 1).Logtext
     Write-Warning $text
-    Start-Sleep -Seconds 30
+    if (($relevant_logs | select -First 1).Logtext -eq "Verfügbar"){
+        foreach($log in $logs){
+            if($log -like "*Machine has been idle for*"){
+                 
+                $text = parseLogText -log $log | select -Last 1
+                $text
+                try{
+                    [int]$time_idle = parseMachineIdle -log $text | select -Last 1 -ErrorAction Stop
+                }catch [System.Management.Automation.RuntimeException]{
+                    $time_idle = 0
+                }
+                Write-Host $time_idle
+                If ($time_idle -gt 250){
+                    Write-Error "time"
+                }
+                break
+            }
+        }
+        Start-Sleep -Seconds 10
+    }else{
+        Start-Sleep -Seconds 120
+    }
+    
 }
 
 #"Verfügbar"
